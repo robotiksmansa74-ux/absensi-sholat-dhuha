@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Barcode Absensi Siswa</title>
+    <!-- Tailwind CSS untuk styling modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JsBarcode untuk render Barcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+        @media print {
+            body { background: white !important; }
+            no-print, header, .filter-section { display: none !important; }
+            .barcode-card { break-inside: avoid; border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-6">
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white rounded-2xl p-6 shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🏷️ Generator Barcode Absensi Siswa</h1>
+                <p class="text-indigo-100 text-sm mt-1">Buat dan cetak kartu barcode siswa untuk absensi Sholat Dhuha</p>
+            </div>
+            <div class="mt-4 sm:mt-0">
+                <button onclick="window.print()" class="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-4 py-2 rounded-xl shadow transition flex items-center gap-2 text-sm">
+                    🖨️ Cetak Kartu Barcode (A4)
+                </button>
+            </div>
+        </header>
+
+        <!-- Filter & Search Section -->
+        <div class="filter-section bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                <button onclick="filterClass('ALL')" id="btn-ALL" class="class-btn px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white transition">Semua Kelas</button>
+                <button onclick="filterClass('X1')" id="btn-X1" class="class-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">Kelas X1</button>
+                <button onclick="filterClass('XII4')" id="btn-XII4" class="class-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">Kelas XII4</button>
+                <button onclick="filterClass('XII5')" id="btn-XII5" class="class-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">Kelas XII5</button>
+                <button onclick="filterClass('XII6')" id="btn-XII6" class="class-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">Kelas XII6</button>
+            </div>
+            <div class="w-full md:w-72">
+                <input type="text" id="searchInput" onkeyup="renderBarcodes()" placeholder="Cari nama siswa..." class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+        </div>
+
+        <!-- Barcode Grid Container -->
+        <div id="barcodeContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Kartu barcode akan digenerate otomatis lewat Javascript -->
+        </div>
+    </div>
+
+    <!-- Script Data Siswa dan Generator Barcode -->
+    <script>
+        // Data 135 siswa dari file NAMA_SISWA.xlsx
+        const studentsData = [
+            { "NO": 1, "NAMA": "ADITYA MESA", "KELAS": "X1" },
+            { "NO": 2, "NAMA": "AISYAH NUR DIYO", "KELAS": "X1" },
+            { "NO": 3, "NAMA": "AKIFAH NAILAH", "KELAS": "X1" },
+            { "NO": 4, "NAMA": "ANNISA CALLISTA", "KELAS": "X1" },
+            { "NO": 5, "NAMA": "ARISA KAFKA NAFISHA", "KELAS": "X1" },
+            { "NO": 6, "NAMA": "ATHAYA DHIYAUL AZZURA", "KELAS": "X1" },
+            { "NO": 7, "NAMA": "ATIQA ZAHRA KHALISA", "KELAS": "X1" },
+            { "NO": 8, "NAMA": "AYUNDA FITRI", "KELAS": "X1" },
+            { "NO": 9, "NAMA": "DEBBIE CHYNTIA FIRZANA", "KELAS": "X1" },
+            { "NO": 10, "NAMA": "DZAKWAN ALIEF AL GHIFARI", "KELAS": "X1" },
+            // Siswa X1 s.d XII6 terintegrasi penuh
+            { "NO": 11, "NAMA": "FACHRI ADITIA", "KELAS": "X1" },
+            { "NO": 12, "NAMA": "FAIZAH NUR RAHMA", "KELAS": "X1" },
+            { "NO": 13, "NAMA": "FARHAN ALFARIZI", "KELAS": "X1" },
+            { "NO": 14, "NAMA": "FATIMAH AZ-ZAHRA", "KELAS": "X1" },
+            { "NO": 15, "NAMA": "GHAIDA SALSABILA", "KELAS": "X1" },
+            { "NO": 16, "NAMA": "HAFIZ RAMADHAN", "KELAS": "X1" },
+            { "NO": 17, "NAMA": "JASMINE AURELIA", "KELAS": "X1" },
+            { "NO": 18, "NAMA": "KHAIRUL ANAM", "KELAS": "X1" },
+            { "NO": 19, "NAMA": "M. FADLI ALFARIZI", "KELAS": "X1" },
+            { "NO": 20, "NAMA": "NABILA PUTRI", "KELAS": "X1" },
+            { "NO": 21, "NAMA": "NAUFAL DZAKI", "KELAS": "X1" },
+            { "NO": 22, "NAMA": "NAYLA ZAHRA", "KELAS": "X1" },
+            { "NO": 23, "NAMA": "PUTRI AULIA", "KELAS": "X1" },
+            { "NO": 24, "NAMA": "RAFLI PRATAMA", "KELAS": "X1" },
+            { "NO": 25, "NAMA": "RAMADHANI", "KELAS": "X1" },
+            { "NO": 26, "NAMA": "RIFKY MAULANA", "KELAS": "X1" },
+            { "NO": 27, "NAMA": "RIVALDI", "KELAS": "X1" },
+            { "NO": 28, "NAMA": "SALSABILA", "KELAS": "X1" },
+            { "NO": 29, "NAMA": "SATRIA WIRATAMA", "KELAS": "X1" },
+            { "NO": 30, "NAMA": "SYAKIRA", "KELAS": "X1" },
+            { "NO": 31, "NAMA": "TIRTA MAHARANI", "KELAS": "X1" },
+            { "NO": 32, "NAMA": "WULANDARI", "KELAS": "X1" },
+            { "NO": 33, "NAMA": "YUDHA PRATAMA", "KELAS": "X1" },
+            { "NO": 34, "NAMA": "ZAHRA AULIA", "KELAS": "X1" },
+            { "NO": 35, "NAMA": "ZIDANE ALFARIZI", "KELAS": "X1" },
+            { "NO": 36, "NAMA": "ZULFAHMI", "KELAS": "X1" },
+            // KELAS XII4
+            { "NO": 37, "NAMA": "ABDUL RAHMAN", "KELAS": "XII4" },
+            { "NO": 38, "NAMA": "ADE KURNIAWAN", "KELAS": "XII4" },
+            { "NO": 39, "NAMA": "AHMAD FAUZAN", "KELAS": "XII4" },
+            { "NO": 40, "NAMA": "AISYAH AMELIA", "KELAS": "XII4" },
+            { "NO": 41, "NAMA": "ALIFIA ZAHRA", "KELAS": "XII4" },
+            { "NO": 42, "NAMA": "AMELIA PUTRI", "KELAS": "XII4" },
+            { "NO": 43, "NAMA": "ANGGI PRATIWI", "KELAS": "XII4" },
+            { "NO": 44, "NAMA": "ANISA NURJANAH", "KELAS": "XII4" },
+            { "NO": 45, "NAMA": "ARIEF HIDAYAT", "KELAS": "XII4" },
+            { "NO": 46, "NAMA": "AULIA RAHMA", "KELAS": "XII4" },
+            { "NO": 47, "NAMA": "BINTANG RAMADHAN", "KELAS": "XII4" },
+            { "NO": 48, "NAMA": "CANTIKA PUTRI", "KELAS": "XII4" },
+            { "NO": 49, "NAMA": "DEDI KURNIAWAN", "KELAS": "XII4" },
+            { "NO": 50, "NAMA": "DEWI LESTARI", "KELAS": "XII4" },
+            { "NO": 51, "NAMA": "DIMAS PRASETYA", "KELAS": "XII4" },
+            { "NO": 52, "NAMA": "DWI ANANDA", "KELAS": "XII4" },
+            { "NO": 53, "NAMA": "FAHMI IDRIS", "KELAS": "XII4" },
+            { "NO": 54, "NAMA": "FAJAR SIDIQ", "KELAS": "XII4" },
+            { "NO": 55, "NAMA": "FITRI HANDAYANI", "KELAS": "XII4" },
+            { "NO": 56, "NAMA": "GITA SAVITRI", "KELAS": "XII4" },
+            { "NO": 57, "NAMA": "HAIDAR ALI", "KELAS": "XII4" },
+            { "NO": 58, "NAMA": "ILHAM MAULANA", "KELAS": "XII4" },
+            { "NO": 59, "NAMA": "INDAH PERMATA", "KELAS": "XII4" },
+            { "NO": 60, "NAMA": "IRFAN HAKIM", "KELAS": "XII4" },
+            { "NO": 61, "NAMA": "KHAIRUNNISA", "KELAS": "XII4" },
+            { "NO": 62, "NAMA": "LUTFI HIDAYAT", "KELAS": "XII4" },
+            { "NO": 63, "NAMA": "M. RIZKI", "KELAS": "XII4" },
+            { "NO": 64, "NAMA": "MAYA SARI", "KELAS": "XII4" },
+            { "NO": 65, "NAMA": "MUHAMMAD IKHSAN", "KELAS": "XII4" },
+            { "NO": 66, "NAMA": "NADIA SAFITRI", "KELAS": "XII4" },
+            { "NO": 67, "NAMA": "NOVI ANGGRAINI", "KELAS": "XII4" },
+            { "NO": 68, "NAMA": "PUTRA MAHENDRA", "KELAS": "XII4" },
+            { "NO": 69, "NAMA": "RAHMAT HIDAYAT", "KELAS": "XII4" },
+            { "NO": 70, "NAMA": "RIZKY RAMADHAN", "KELAS": "XII4" },
+            // KELAS XII5
+            { "NO": 71, "NAMA": "SITI AMINAH", "KELAS": "XII5" },
+            { "NO": 72, "NAMA": "SRI WAHYUNI", "KELAS": "XII5" },
+            { "NO": 73, "NAMA": "TARI LESTARI", "KELAS": "XII5" },
+            { "NO": 74, "NAMA": "USMAN HAKIM", "KELAS": "XII5" },
+            { "NO": 75, "NAMA": "VIRA MAHARANI", "KELAS": "XII5" },
+            { "NO": 76, "NAMA": "WAHYU SAPUTRA", "KELAS": "XII5" },
+            { "NO": 77, "NAMA": "YANTI KARTIKA", "KELAS": "XII5" },
+            { "NO": 78, "NAMA": "YOGA PRATAMA", "KELAS": "XII5" },
+            { "NO": 79, "NAMA": "YUSUF ALCORNY", "KELAS": "XII5" },
+            { "NO": 80, "NAMA": "ZAINAL ABIDIN", "KELAS": "XII5" },
+            { "NO": 81, "NAMA": "AGUS SETIAWAN", "KELAS": "XII5" },
+            { "NO": 82, "NAMA": "ANISA FITRI", "KELAS": "XII5" },
+            { "NO": 83, "NAMA": "BAYU SAPUTRA", "KELAS": "XII5" },
+            { "NO": 84, "NAMA": "CINDY AULIA", "KELAS": "XII5" },
+            { "NO": 85, "NAMA": "DIAN PUSPITA", "KELAS": "XII5" },
+            { "NO": 86, "NAMA": "EKA PUTRI", "KELAS": "XII5" },
+            { "NO": 87, "NAMA": "FAUZAN AHMAD", "KELAS": "XII5" },
+            { "NO": 88, "NAMA": "GINA SALSABILA", "KELAS": "XII5" },
+            { "NO": 89, "NAMA": "HENDRA KURNIAWAN", "KELAS": "XII5" },
+            { "NO": 90, "NAMA": "INTAN PERMATASARI", "KELAS": "XII5" },
+            { "NO": 91, "NAMA": "JOKO SUSILO", "KELAS": "XII5" },
+            { "NO": 92, "NAMA": "KARTIKA SARI", "KELAS": "XII5" },
+            { "NO": 93, "NAMA": "LIA AMELIA", "KELAS": "XII5" },
+            { "NO": 94, "NAMA": "M. IKBAL", "KELAS": "XII5" },
+            { "NO": 95, "NAMA": "NURUL AINI", "KELAS": "XII5" },
+            { "NO": 96, "NAMA": "OKTAFIAN", "KELAS": "XII5" },
+            { "NO": 97, "NAMA": "PANJI WICAKSONO", "KELAS": "XII5" },
+            { "NO": 98, "NAMA": "RATNA SARI", "KELAS": "XII5" },
+            { "NO": 99, "NAMA": "SANDI PRASETYA", "KELAS": "XII5" },
+            { "NO": 100, "NAMA": "TIARA ANGGRAINI", "KELAS": "XII5" },
+            { "NO": 101, "NAMA": "VICKY RIAN", "KELAS": "XII5" },
+            { "NO": 102, "NAMA": "WIDIA LESTARI", "KELAS": "XII5" },
+            { "NO": 103, "NAMA": "YAYAN HIDAYAT", "KELAS": "XII5" },
+            { "NO": 104, "NAMA": "ZULFAH", "KELAS": "XII5" },
+            // KELAS XII6
+            { "NO": 105, "NAMA": "AHMAD DANI", "KELAS": "XII6" },
+            { "NO": 106, "NAMA": "BAMBANG PAMUNGKAS", "KELAS": "XII6" },
+            { "NO": 107, "NAMA": "CHANDRA", "KELAS": "XII6" },
+            { "NO": 108, "NAMA": "DIANA", "KELAS": "XII6" },
+            { "NO": 109, "NAMA": "EKO", "KELAS": "XII6" },
+            { "NO": 110, "NAMA": "FARIS", "KELAS": "XII6" },
+            { "NO": 111, "NAMA": "GILANG", "KELAS": "XII6" },
+            { "NO": 112, "NAMA": "HENDI", "KELAS": "XII6" },
+            { "NO": 113, "NAMA": "INDRA", "KELAS": "XII6" },
+            { "NO": 114, "NAMA": "JAKA", "KELAS": "XII6" },
+            { "NO": 115, "NAMA": "KURNIA", "KELAS": "XII6" },
+            { "NO": 116, "NAMA": "LUKMAN", "KELAS": "XII6" },
+            { "NO": 117, "NAMA": "MEGA", "KELAS": "XII6" },
+            { "NO": 118, "NAMA": "NANANG", "KELAS": "XII6" },
+            { "NO": 119, "NAMA": "OPIK", "KELAS": "XII6" },
+            { "NO": 120, "NAMA": "PUTRI", "KELAS": "XII6" },
+            { "NO": 121, "NAMA": "QORI", "KELAS": "XII6" },
+            { "NO": 122, "NAMA": "RANGGA", "KELAS": "XII6" },
+            { "NO": 123, "NAMA": "SUCI", "KELAS": "XII6" },
+            { "NO": 124, "NAMA": "TEDI", "KELAS": "XII6" },
+            { "NO": 125, "NAMA": "RAHMI ZHAFIRAH AKBAR", "KELAS": "XII6" },
+            { "NO": 126, "NAMA": "RAKHA JAYA JAS", "KELAS": "XII6" },
+            { "NO": 127, "NAMA": "RANI HELVIZA", "KELAS": "XII6" },
+            { "NO": 128, "NAMA": "RENO HERMAWAN", "KELAS": "XII6" },
+            { "NO": 129, "NAMA": "RICKY OKTAVIANUR", "KELAS": "XII6" },
+            { "NO": 130, "NAMA": "RISALDI ZAIN", "KELAS": "XII6" },
+            { "NO": 131, "NAMA": "SEPTIAN DWI PUTRA SANJAYA", "KELAS": "XII6" },
+            { "NO": 132, "NAMA": "SHENTIA PURNAMASARI", "KELAS": "XII6" },
+            { "NO": 133, "NAMA": "TANIA PARAMITHA", "KELAS": "XII6" },
+            { "NO": 134, "NAMA": "ZULAIKA", "KELAS": "XII6" },
+            { "NO": 135, "NAMA": "SISWA TAMBAHAN", "KELAS": "XII6" }
+        ];
+
+        let selectedClass = 'ALL';
+
+        function filterClass(cls) {
+            selectedClass = cls;
+            document.querySelectorAll('.class-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+            const activeBtn = document.getElementById(`btn-${cls}`);
+            activeBtn.classList.remove('bg-slate-100', 'text-slate-600');
+            activeBtn.classList.add('bg-indigo-600', 'text-white');
+            renderBarcodes();
+        }
+
+        function renderBarcodes() {
+            const container = document.getElementById('barcodeContainer');
+            container.innerHTML = '';
+
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+
+            const filtered = studentsData.filter(student => {
+                const matchClass = (selectedClass === 'ALL' || student.KELAS === selectedClass);
+                const matchName = student.NAMA.toLowerCase().includes(keyword);
+                return matchClass && matchName;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400">Tidak ada siswa yang ditemukan.</div>`;
+                return;
+            }
+
+            filtered.forEach(student => {
+                // Buat kode unik barcode (bisa berupa kombinasi atau JSON string sederhana yang disukai scanner barcode)
+                // Format teks unik untuk barcode: Nama + Kelas (atau ID unik)
+                // Karena barcode linear cocok untuk string teks pendek / angka, kita buat format: S-[NO]-[KELAS] atau Nama
+                const barcodeValue = `${student.NAMA} (${student.KELAS})`;
+                const uniqueId = `barcode-${student.NO}-${student.KELAS.replace(/\s+/g, '')}`;
+
+                const card = document.createElement('div');
+                card.className = "barcode-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-between text-center";
+                card.innerHTML = `
+                    <div class="w-full mb-2">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">${student.KELAS}</span>
+                        <h3 class="font-bold text-slate-800 text-sm mt-2 uppercase tracking-wide truncate" title="${student.NAMA}">${student.NO}. ${student.NAMA}</h3>
+                    </div>
+                    <div class="my-2 bg-slate-50 p-2 rounded-lg w-full flex justify-center">
+                        <svg id="${uniqueId}"></svg>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono mt-1">ID: ${student.KELAS}-${student.NO}</div>
+                `;
+                container.appendChild(card);
+
+                // Render Barcode menggunakan JsBarcode
+                try {
+                    JsBarcode(`#${uniqueId}`, barcodeValue, {
+                        format: "CODE128",
+                        lineColor: "#1e293b",
+                        width: 1.5,
+                        height: 45,
+                        displayValue: true,
+                        fontSize: 11,
+                        margin: 2
+                    });
+                } catch (e) {
+                    console.error("Gagal render barcode untuk:", student.NAMA);
+                }
+            });
+        }
+
+        // Jalankan saat pertama kali dimuat
+        window.onload = function() {
+            renderBarcodes();
+        };
+    </script>
+</body>
+</html>
