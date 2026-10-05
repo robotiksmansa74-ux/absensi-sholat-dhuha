@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Absensi Sholat Dhuha - Barcode</title>
+    <!-- Tailwind CSS untuk styling modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QuaggaJS untuk Barcode Scanner -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <!-- SheetJS untuk Export Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hidden px-6 py-3 rounded-lg text-white font-semibold shadow-lg transition-all duration-300 text-center max-w-md w-11/12"></div>
+
+    <div class="max-w-4xl mx-auto p-4 sm:p-6">
+        <!-- Header -->
+        <header class="bg-emerald-600 text-white rounded-2xl p-6 shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🕌 Absensi Sholat Dhuha (Barcode)</h1>
+                <p class="text-emerald-100 text-sm mt-1">Scan Barcode siswa untuk mencatat kehadiran</p>
+            </div>
+            <div class="mt-4 sm:mt-0 text-right">
+                <div id="currentDate" class="text-sm font-medium bg-emerald-700 px-3 py-1.5 rounded-lg"></div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Scanner Section -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col items-center">
+                <h2 class="text-lg font-semibold mb-3 text-slate-700">📸 Kamera Barcode Scanner</h2>
+                <!-- Area Kamera Quagga -->
+                <div id="interactive" class="viewport w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative" style="min-height: 250px;">
+                    <video class="w-full h-full object-cover" autoplay playsinline></video>
+                    <canvas class="drawingBuffer absolute top-0 left-0" style="display: none;"></canvas>
+                </div>
+                <div class="mt-4 flex gap-2 w-full">
+                    <button id="startScanBtn" onclick="startScanner()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-xl font-medium transition">Mulai Kamera</button>
+                    <button id="stopScanBtn" onclick="stopScanner()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 px-4 rounded-xl font-medium transition hidden">Matikan Kamera</button>
+                </div>
+            </div>
+
+            <!-- Stats & Quick Actions -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 text-slate-700">📊 Informasi Hari Ini</h2>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+                            <p class="text-xs text-emerald-600 font-medium">Total Hadir</p>
+                            <p id="totalHadir" class="text-3xl font-bold text-emerald-700 mt-1">0</p>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                            <p class="text-xs text-slate-500 font-medium">Tanggal</p>
+                            <p id="statDate" class="text-sm font-bold text-slate-700 mt-2">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <button onclick="exportToExcel()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl font-medium transition flex items-center justify-center gap-2">
+                        📥 Download Rekap Excel
+                    </button>
+                    <button onclick="resetAbsensi()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 px-4 rounded-xl font-medium text-sm transition">
+                        🔄 Reset Data Hari Ini
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabel Kehadiran -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+                <h2 class="text-lg font-semibold text-slate-700">📝 Daftar Siswa Hadir</h2>
+                <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Cari nama atau kelas..." class="w-full sm:w-64 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div class="overflow-x-auto max-h-96 rounded-xl border border-slate-100">
+                <table id="attendanceTable" class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 sticky top-0 border-b border-slate-200">
+                        <tr>
+                            <th class="p-3 text-xs font-semibold text-slate-600 uppercase">No</th>
+                            <th class="p-3 text-xs font-semibold text-slate-600 uppercase">Nama Siswa</th>
+                            <th class="p-3 text-xs font-semibold text-slate-600 uppercase">Kelas</th>
+                            <th class="p-3 text-xs font-semibold text-slate-600 uppercase">Waktu Scan</th>
+                            <th class="p-3 text-xs font-semibold text-slate-600 uppercase text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Data akan dimasukkan lewat Javascript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Aplikasi -->
+    <script>
+        // Tanggal Hari Ini
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const todayStr = new Date().toLocaleDateString('id-ID', options);
+        document.getElementById('currentDate').innerText = todayStr;
+        document.getElementById('statDate').innerText = new Date().toLocaleDateString('id-ID');
+
+        // State & LocalStorage
+        let absensiList = JSON.parse(localStorage.getItem('absensi_dhuha_barcode')) || [];
+        let isScanning = false;
+
+        // Cooldown untuk mencegah scan beruntun pada barcode yang sama
+        let lastScannedCode = "";
+        let lastScannedTime = 0;
+        const COOLDOWN_TIME = 5000; // Jeda 5 detik
+
+        // Tampilkan Toast Notification
+        function showNotification(message, type) {
+            const toast = document.getElementById('toastNotification');
+            toast.innerText = message;
+            
+            if (type === 'success') {
+                toast.style.backgroundColor = '#10B981'; // Hijau
+            } else if (type === 'warning') {
+                toast.style.backgroundColor = '#F59E0B'; // Kuning/Oranye
+            } else {
+                toast.style.backgroundColor = '#EF4444'; // Merah
+            }
+            
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Audio Beep
+        function playBeep(success = true) {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (success) {
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.1);
+                } else {
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                }
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch(e) {}
+        }
+
+        // Inisialisasi QuaggaJS Barcode Scanner
+        function startScanner() {
+            if (isScanning) return;
+
+            Quagga.init({
+                inputStream : {
+                    name : "Live",
+                    type : "LiveStream",
+                    target: document.querySelector('#interactive'),
+                    constraints: {
+                        facingMode: "environment" // Kamera belakang
+                    },
+                },
+                decoder : {
+                    readers : [
+                        "code_128_reader",
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_39_reader",
+                        "upc_reader"
+                    ]
+                },
+                locate: true
+            }, function(err) {
+                if (err) {
+                    console.error(err);
+                    showNotification("Gagal mengaktifkan kamera scanner barcode.", "error");
+                    return;
+                }
+                Quagga.start();
+                isScanning = true;
+                document.getElementById('startScanBtn').classList.add('hidden');
+                document.getElementById('stopScanBtn').classList.remove('hidden');
+            });
+
+            Quagga.onDetected(onBarcodeDetected);
+        }
+
+        function stopScanner() {
+            if (isScanning) {
+                Quagga.stop();
+                Quagga.offDetected(onBarcodeDetected);
+                isScanning = false;
+                document.getElementById('startScanBtn').classList.remove('hidden');
+                document.getElementById('stopScanBtn').classList.remove('hidden');
+                document.getElementById('stopScanBtn').classList.add('hidden');
+            }
+        }
+
+        // Ketika Barcode Berhasil Dibaca
+        function onBarcodeDetected(result) {
+            const code = result.codeResult.code;
+            const currentTime = Date.now();
+
+            // Cek cooldown
+            if (code === lastScannedCode && (currentTime - lastScannedTime) < COOLDOWN_TIME) {
+                return;
+            }
+
+            lastScannedCode = code;
+            lastScannedTime = currentTime;
+
+            // Barcode umumnya berisi ID unik atau string nama/kelas (misal format: "NAMA|KELAS" atau kode NISN)
+            // Contoh di sini kita asumsikan barcode berisi format JSON atau teks nama/kelas, 
+            // atau jika berupa teks biasa, kita simpan kodenya sebagai identifier siswa.
+            parseAndRecordData(code);
+        }
+
+        function parseAndRecordData(codeText) {
+            let nama = "";
+            let kelas = "";
+
+            try {
+                // Coba parse jika barcode berisi string JSON
+                const data = JSON.parse(codeText);
+                nama = data.nama;
+                kelas = data.kelas;
+            } catch (e) {
+                // Jika bukan JSON (misal teks biasa / nomor ID), kita gunakan teks barcode sebagai Nama/ID sementara
+                nama = "Siswa (ID: " + codeText + ")";
+                kelas = "Umum/Lainnya";
+            }
+
+            // Cek apakah sudah absen
+            const sudahAbsen = absensiList.some(item => item.nama === nama);
+
+            if (sudahAbsen) {
+                showNotification(`⚠️ Barcode ${codeText} sudah absen sebelumnya!`, "warning");
+                playBeep(false);
+            } else {
+                const waktu = new Date().toLocaleTimeString('id-ID');
+                const tanggal = new Date().toLocaleDateString('id-ID');
+
+                absensiList.unshift({ nama, kelas, waktu, tanggal });
+                localStorage.setItem('absensi_dhuha_barcode', JSON.stringify(absensiList));
+                
+                updateTable();
+                showNotification(`✅ Berhasil: ${nama} tercatat hadir!`, "success");
+                playBeep(true);
+            }
+        }
+
+        // Update Tabel & Statistik
+        function updateTable() {
+            const tbody = document.getElementById('attendanceTableBody');
+            tbody.innerHTML = '';
+
+            if (absensiList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Belum ada data absensi hari ini.</td></tr>`;
+                document.getElementById('totalHadir').innerText = '0';
+                return;
+            }
+
+            absensiList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-500">${index + 1}</td>
+                    <td class="p-3 font-medium text-slate-800">${item.nama}</td>
+                    <td class="p-3 text-slate-600"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-semibold">${item.kelas}</span></td>
+                    <td class="p-3 text-slate-600">${item.waktu}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="hapusItem(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-medium px-2 py-1 bg-rose-50 hover:bg-rose-100 rounded-md transition">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('totalHadir').innerText = absensiList.length;
+        }
+
+        function hapusItem(index) {
+            if (confirm("Yakin ingin menghapus data ini?")) {
+                absensiList.splice(index, 1);
+                localStorage.setItem('absensi_dhuha_barcode', JSON.stringify(absensiList));
+                updateTable();
+                showNotification("Data berhasil dihapus", "warning");
+            }
+        }
+
+        function resetAbsensi() {
+            if (confirm("Reset seluruh data absensi hari ini?")) {
+                absensiList = [];
+                localStorage.removeItem('absensi_dhuha_barcode');
+                updateTable();
+                showNotification("Semua data absensi dikosongkan", "warning");
+            }
+        }
+
+        function filterTable() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.getElementById('attendanceTableBody').getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.cells.length < 5) continue;
+                const nama = row.cells[1].innerText.toLowerCase();
+                const kelas = row.cells[2].innerText.toLowerCase();
+
+                if (nama.includes(keyword) || kelas.numbers?.includes(keyword) || nama.includes(keyword)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        }
+
+        function exportToExcel() {
+            if (absensiList.length === 0) {
+                showNotification("Belum ada data untuk di-export!", "warning");
+                return;
+            }
+
+            const dataToExport = absensiList.map((item, idx) => ({
+                "No": idx + 1,
+                "Nama Siswa": item.nama,
+                "Kelas": item.kelas,
+                "Waktu Scan": item.waktu,
+                "Tanggal": item.tanggal
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi Barcode");
+            
+            const fileName = `Rekap_Absensi_Barcode_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(workbook, fileName);
+            showNotification("File Excel berhasil di-download!", "success");
+        }
+
+        window.onload = function() {
+            updateTable();
+            setTimeout(startScanner, 1000);
+        };
+    </script>
+</body>
+</html>
