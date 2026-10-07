@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- QRCode.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- SheetJS (xlsx) Library untuk membaca file Excel (.xlsx/.xls) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- HTML5 QR Code Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -101,14 +103,14 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
                     <div>
                         <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-                            <i class="fa-solid fa-file-arrow-up text-green-600"></i> Sumber Data Siswa (Format: No, Nama, NIPD, JK)
+                            <i class="fa-solid fa-file-arrow-up text-green-600"></i> Sumber Data Siswa (Format: NO, NAMA, NIPD, J. KELAMIN, NISN, KELAS)
                         </h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Unggah file CSV dengan header No, Nama, NIPD, JK.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Unggah file Excel (.xlsx / .xls), CSV, atau JSON.</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <label class="cursor-pointer bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 px-4 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2">
-                            <i class="fa-solid fa-upload"></i> Pilih File Data (.csv / .json)
-                            <input type="file" id="studentFile" accept=".csv, .json" onchange="handleFileSelect(event)" class="hidden">
+                            <i class="fa-solid fa-upload"></i> Pilih File (.xlsx / .csv / .json)
+                            <input type="file" id="studentFile" accept=".xlsx, .xls, .csv, .json" onchange="handleFileSelect(event)" class="hidden">
                         </label>
                         <button onclick="resetToDefaultData()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2.5 rounded-xl text-xs font-medium transition" title="Gunakan data bawaan">
                             <i class="fa-solid fa-rotate-right"></i>
@@ -118,18 +120,18 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">Cari Nama Siswa</label>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">Cari Nama / NIPD / NISN</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                 <i class="fa-solid fa-magnifying-glass text-xs"></i>
                             </span>
-                            <input type="text" id="searchInput" oninput="filterAndRenderStudents()" placeholder="Ketik nama siswa..." class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <input type="text" id="searchInput" oninput="filterAndRenderStudents()" placeholder="Ketik pencarian..." class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">Filter Jenis Kelamin (JK)</label>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">Filter Kelas</label>
                         <select id="filterKelas" onchange="filterAndRenderStudents()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="ALL">Semua (L/P)</option>
+                            <option value="ALL">Semua Kelas</option>
                         </select>
                     </div>
                     <div class="flex items-end">
@@ -211,12 +213,13 @@
                                         <th class="p-2.5">Nama</th>
                                         <th class="p-2.5">NIPD</th>
                                         <th class="p-2.5">JK</th>
+                                        <th class="p-2.5">Kelas</th>
                                         <th class="p-2.5">Waktu Hadir</th>
                                     </tr>
                                 </thead>
                                 <tbody id="attendanceTableBody" class="divide-y divide-slate-100">
                                     <tr>
-                                        <td colspan="5" class="p-4 text-center text-slate-400">Belum ada data absensi tercatat.</td>
+                                        <td colspan="6" class="p-4 text-center text-slate-400">Belum ada data absensi tercatat.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -243,7 +246,7 @@
                     <div id="modalQrCodeBox" class="bg-white p-3 rounded-xl inline-block shadow-md"></div>
                     <div>
                         <h4 id="modalStudentName" class="font-bold text-base text-white">Nama Siswa</h4>
-                        <p id="modalStudentClass" class="text-xs text-green-300 mt-0.5">NIPD / JK</p>
+                        <p id="modalStudentClass" class="text-xs text-green-300 mt-0.5">Info Detail</p>
                     </div>
                 </div>
             </div>
@@ -255,18 +258,17 @@
 
     <script>
         const defaultStudentsData = [
-            { no: "1", nama: "ADITYA MESA", nipd: "13709", jk: "L" },
-            { no: "2", nama: "RAHMI ZHAFIRAH AKBAR", nipd: "13277", jk: "P" },
-            { no: "3", nama: "AHMAD FAUZAN", nipd: "13536", jk: "L" },
-            { no: "4", nama: "ANNISA NURUL", nipd: "13732", jk: "P" }
+            { no: "1", nama: "ABDUL MANIF", nipd: "13371", jk: "L", nisn: "105848754", kelas: "XI 6" },
+            { no: "2", nama: "ABDUL QAHIR AS SAHLANIY", nipd: "13705", jk: "L", nisn: "108223825", kelas: "X 2" },
+            { no: "3", nama: "ABDULLAH HAKIM", nipd: "13048", jk: "L", nisn: "3086957418", kelas: "XII 4" },
+            { no: "4", nama: "ABIYAH SALWA", nipd: "13372", jk: "P", nisn: "92692215", kelas: "XI 4" }
         ];
 
         let rawStudentsData = [...defaultStudentsData];
         let attendanceList = [];
 
         window.addEventListener('DOMContentLoaded', () => {
-            // Load data absensi yang tersimpan di localStorage saat halaman dimuat
-            const savedAttendance = localStorage.getItem('school_attendance_list');
+            const savedAttendance = localStorage.getItem('school_attendance_list_v2');
             if (savedAttendance) {
                 try {
                     attendanceList = JSON.parse(savedAttendance);
@@ -333,6 +335,7 @@
             }
         }
 
+        // Handle File Upload (Excel .xlsx/.xls, CSV, JSON)
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -340,24 +343,75 @@
             const reader = new FileReader();
             const fileName = file.name.toLowerCase();
 
-            reader.onload = function(e) {
-                const content = e.target.result;
-                try {
-                    if (fileName.endsWith('.json')) {
-                        const parsed = JSON.parse(content);
-                        if (Array.isArray(parsed)) {
-                            rawStudentsData = parsed;
-                            showToast(`Berhasil memuat ${parsed.length} data siswa dari JSON!`, "success");
-                            initApp();
-                        }
-                    } else if (fileName.endsWith('.csv')) {
-                        parseCSVData(content);
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonSheet = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                        parseSpreadsheetData(jsonSheet);
+                    } catch (err) {
+                        showToast("Gagal membaca file Excel.", "error");
                     }
-                } catch (err) {
-                    showToast("Gagal membaca file.", "error");
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    try {
+                        if (fileName.endsWith('.json')) {
+                            const parsed = JSON.parse(content);
+                            if (Array.isArray(parsed)) {
+                                parseSpreadsheetData(parsed);
+                            }
+                        } else if (fileName.endsWith('.csv')) {
+                            parseCSVData(content);
+                        }
+                    } catch (err) {
+                        showToast("Gagal membaca file.", "error");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // Universal parser untuk data dari Excel (SheetJS) atau JSON
+        function parseSpreadsheetData(rows) {
+            if (!Array.isArray(rows) || rows.length === 0) {
+                showToast("File kosong atau format tidak valid.", "error");
+                return;
+            }
+
+            const parsedList = [];
+            rows.forEach((row, idx) => {
+                // Normalisasi key menjadi huruf kecil tanpa spasi berlebih
+                const normalizedRow = {};
+                Object.keys(row).forEach(k => {
+                    normalizedRow[k.trim().toLowerCase()] = row[k];
+                });
+
+                const nama = normalizedRow['nama'] || normalizedRow['nama_siswa'] || normalizedRow['name'];
+                if (nama && nama.toString().trim() !== "") {
+                    parsedList.push({
+                        no: normalizedRow['no'] || normalizedRow['no.'] || (idx + 1).toString(),
+                        nama: nama.toString().trim(),
+                        nipd: normalizedRow['nipd'] || normalizedRow['nis'] || "-",
+                        jk: normalizedRow['j. kelamin'] || normalizedRow['jk'] || normalizedRow['gender'] || "-",
+                        nisn: normalizedRow['nisn'] || "-",
+                        kelas: normalizedRow['kelas'] || normalizedRow['rombel'] || "-"
+                    });
                 }
-            };
-            reader.readAsText(file);
+            });
+
+            if (parsedList.length > 0) {
+                rawStudentsData = parsedList;
+                showToast(`Berhasil memuat ${parsedList.length} data siswa!`, "success");
+                initApp();
+            } else {
+                showToast("Tidak ada baris data siswa yang valid ditemukan.", "error");
+            }
         }
 
         function parseCSVData(text) {
@@ -367,34 +421,16 @@
             const delimiter = lines[0].includes(';') ? ';' : ',';
             const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/["'\ufeff]/g, ''));
             
-            const noIdx = headers.findIndex(h => h.includes('no'));
-            const namaIdx = headers.findIndex(h => h.includes('nama') || h.includes('name'));
-            const nipdIdx = headers.findIndex(h => h.includes('nipd') || h.includes('nisn') || h.includes('nis'));
-            const jkIdx = headers.findIndex(h => h.includes('jk') || h.includes('gender') || h.includes('kelamin'));
-
-            if (namaIdx === -1) {
-                showToast("Kolom 'Nama' tidak ditemukan di CSV.", "error");
-                return;
-            }
-
-            const parsedList = [];
+            const rows = [];
             for (let i = 1; i < lines.length; i++) {
-                const row = lines[i].split(delimiter).map(val => val.trim().replace(/^["']|["']$/g, ''));
-                if (row[namaIdx] && row[namaIdx] !== "") {
-                    parsedList.push({
-                        no: noIdx !== -1 ? row[noIdx] : i.toString(),
-                        nama: row[namaIdx],
-                        nipd: nipdIdx !== -1 ? row[nipdIdx] : "-",
-                        jk: jkIdx !== -1 ? row[jkIdx] : "-"
-                    });
-                }
+                const rowVals = lines[i].split(delimiter).map(val => val.trim().replace(/^["']|["']$/g, ''));
+                const obj = {};
+                headers.forEach((h, hIdx) => {
+                    obj[h] = rowVals[hIdx] || "";
+                });
+                rows.push(obj);
             }
-
-            if (parsedList.length > 0) {
-                rawStudentsData = parsedList;
-                showToast(`Berhasil memuat ${parsedList.length} siswa dari CSV!`, "success");
-                initApp();
-            }
+            parseSpreadsheetData(rows);
         }
 
         function resetToDefaultData() {
@@ -406,14 +442,14 @@
 
         function populateClassFilter() {
             const select = document.getElementById('filterKelas');
-            const jkOptions = [...new Set(rawStudentsData.map(s => s.jk))].sort();
+            const classes = [...new Set(rawStudentsData.map(s => s.kelas))].sort();
             
-            select.innerHTML = `<option value="ALL">Semua (${rawStudentsData.length} Siswa)</option>`;
-            jkOptions.forEach(jk => {
-                if (jk && jk !== "-") {
+            select.innerHTML = `<option value="ALL">Semua Kelas (${rawStudentsData.length} Siswa)</option>`;
+            classes.forEach(cls => {
+                if (cls && cls !== "-") {
                     const opt = document.createElement('option');
-                    opt.value = jk;
-                    opt.innerText = `Jenis Kelamin: ${jk.toUpperCase()}`;
+                    opt.value = cls;
+                    opt.innerText = `Kelas ${cls}`;
                     select.appendChild(opt);
                 }
             });
@@ -460,13 +496,13 @@
             const container = document.getElementById('studentGridContainer');
             const emptyState = document.getElementById('emptyState');
             const searchVal = document.getElementById('searchInput').value.toLowerCase();
-            const jkFilter = document.getElementById('filterKelas').value;
+            const kelasFilter = document.getElementById('filterKelas').value;
 
             container.innerHTML = '';
             const filtered = rawStudentsData.filter(s => {
-                const matchSearch = s.nama.toLowerCase().includes(searchVal) || s.nipd.toLowerCase().includes(searchVal);
-                const matchJk = jkFilter === 'ALL' || s.jk.toUpperCase() === jkFilter.toUpperCase();
-                return matchSearch && matchJk;
+                const matchSearch = s.nama.toLowerCase().includes(searchVal) || s.nipd.toString().toLowerCase().includes(searchVal) || s.nisn.toString().toLowerCase().includes(searchVal);
+                const matchKelas = kelasFilter === 'ALL' || s.kelas.toString().toUpperCase() === kelasFilter.toUpperCase();
+                return matchSearch && matchKelas;
             });
 
             document.getElementById('studentCountDisplay').innerText = filtered.length;
@@ -479,20 +515,20 @@
 
             filtered.forEach((student, index) => {
                 const cardId = `qr_card_${index}`;
-                const qrPayload = JSON.stringify({ nama: student.nama, nipd: student.nipd, jk: student.jk });
+                const qrPayload = JSON.stringify({ nama: student.nama, nipd: student.nipd, jk: student.jk, nisn: student.nisn, kelas: student.kelas });
 
                 const cardDiv = document.createElement('div');
                 cardDiv.className = "qr-card-print bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between space-y-4 hover:shadow-md transition";
                 cardDiv.innerHTML = `
                     <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                        <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100">NIPD: ${student.nipd}</span>
-                        <span class="text-xs font-semibold text-slate-500">JK: ${student.jk}</span>
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100">Kelas: ${student.kelas}</span>
+                        <span class="text-xs font-semibold text-slate-500">NIPD: ${student.nipd}</span>
                     </div>
                     <div class="flex flex-col items-center justify-center space-y-3 py-2">
                         <div id="${cardId}" class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm inline-block"></div>
                         <div class="text-center">
                             <h3 class="font-bold text-slate-800 text-sm tracking-tight">${student.nama}</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">No: ${student.no}</p>
+                            <p class="text-xs text-slate-400 mt-0.5">JK: ${student.jk} | NISN: ${student.nisn}</p>
                         </div>
                     </div>
                     <div class="no-print pt-2 border-t border-slate-100 flex gap-2">
@@ -522,10 +558,10 @@
 
         function openModal(student) {
             document.getElementById('modalStudentName').innerText = student.nama;
-            document.getElementById('modalStudentClass').innerText = `NIPD: ${student.nipd} | JK: ${student.jk}`;
+            document.getElementById('modalStudentClass').innerText = `Kelas: ${student.kelas} | NIPD: ${student.nipd} | JK: ${student.jk}`;
             const box = document.getElementById('modalQrCodeBox');
             box.innerHTML = '';
-            const qrPayload = JSON.stringify({ nama: student.nama, nipd: student.nipd, jk: student.jk });
+            const qrPayload = JSON.stringify({ nama: student.nama, nipd: student.nipd, jk: student.jk, nisn: student.nisn, kelas: student.kelas });
             new QRCode(box, {
                 text: qrPayload,
                 width: 150,
@@ -590,6 +626,7 @@
             let namaSiswa = rawText;
             let nipdSiswa = "-";
             let jkSiswa = "-";
+            let kelasSiswa = "-";
 
             try {
                 const parsed = JSON.parse(rawText);
@@ -597,10 +634,11 @@
                     namaSiswa = parsed.nama;
                     nipdSiswa = parsed.nipd || "-";
                     jkSiswa = parsed.jk || "-";
+                    kelasSiswa = parsed.kelas || "-";
                 }
             } catch (e) {}
 
-            const alreadyRecorded = attendanceList.some(item => item.nipd === nipdSiswa && item.nama === namaSiswa);
+            const alreadyRecorded = attendanceList.some(item => item.nipd.toString() === nipdSiswa.toString() && item.nama === namaSiswa);
             if (alreadyRecorded) {
                 playBeep('duplicate');
                 showToast(`${namaSiswa} sudah tercatat hadir sebelumnya!`, "error");
@@ -618,18 +656,17 @@
                 nama: namaSiswa,
                 nipd: nipdSiswa,
                 jk: jkSiswa,
+                kelas: kelasSiswa,
                 waktu: `${dateString} ${timeString}`
             };
 
             attendanceList.unshift(attendanceRecord);
-            
-            // Simpan ke localStorage setiap kali ada data baru yang masuk
-            localStorage.setItem('school_attendance_list', JSON.stringify(attendanceList));
+            localStorage.setItem('school_attendance_list_v3', JSON.stringify(attendanceList));
 
             renderAttendanceTable();
 
             document.getElementById('scannedName').innerText = namaSiswa;
-            document.getElementById('scannedClass').innerText = `NIPD: ${nipdSiswa} | JK: ${jkSiswa}`;
+            document.getElementById('scannedClass').innerText = `Kelas: ${kelasSiswa} | NIPD: ${nipdSiswa} | JK: ${jkSiswa}`;
             document.getElementById('scannedTime').innerText = `Hadir Pukul: ${timeString}`;
             
             showToast(`Presensi Berhasil: ${namaSiswa}`, "success");
@@ -640,7 +677,7 @@
             document.getElementById('attendanceCount').innerText = attendanceList.length;
 
             if (attendanceList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada data absensi tercatat.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada data absensi tercatat.</td></tr>`;
                 return;
             }
 
@@ -653,6 +690,7 @@
                     <td class="p-2.5 font-bold text-slate-800">${item.nama}</td>
                     <td class="p-2.5">${item.nipd}</td>
                     <td class="p-2.5">${item.jk}</td>
+                    <td class="p-2.5">${item.kelas}</td>
                     <td class="p-2.5 text-green-700 font-semibold">${item.waktu}</td>
                 `;
                 tbody.appendChild(tr);
@@ -662,7 +700,7 @@
         function clearAttendanceLog() {
             if (confirm("Yakin ingin mereset tampilan log absensi?")) {
                 attendanceList = [];
-                localStorage.removeItem('school_attendance_list');
+                localStorage.removeItem('school_attendance_list_v3');
                 renderAttendanceTable();
                 showToast("Log absensi direset.", "success");
             }
@@ -671,7 +709,7 @@
         function resetAllAttendanceData() {
             if (confirm("Peringatan: Semua data rekap absensi yang tersimpan akan dihapus permanen. Lanjutkan?")) {
                 attendanceList = [];
-                localStorage.removeItem('school_attendance_list');
+                localStorage.removeItem('school_attendance_list_v3');
                 renderAttendanceTable();
                 showToast("Semua data absensi berhasil dihapus.", "success");
             }
@@ -683,9 +721,9 @@
                 return;
             }
 
-            let csvContent = "No,Nama,NIPD,JK,Waktu Hadir\r\n";
+            let csvContent = "No,Nama,NIPD,JK,Kelas,Waktu Hadir\r\n";
             attendanceList.forEach((item, idx) => {
-                csvContent += `"${idx + 1}","${item.nama}","${item.nipd}","${item.jk}","${item.waktu}"\r\n`;
+                csvContent += `"${idx + 1}","${item.nama}","${item.nipd}","${item.jk}","${item.kelas}","${item.waktu}"\r\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
