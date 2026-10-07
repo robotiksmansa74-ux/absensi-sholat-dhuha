@@ -257,7 +257,7 @@
         ];
 
         let rawStudentsData = [...defaultStudentsData];
-        let attendanceList = []; // Menyimpan data log absensi
+        let attendanceList = [];
 
         window.addEventListener('DOMContentLoaded', () => {
             initApp();
@@ -478,11 +478,16 @@
 
         let html5QrCode = null;
         let isScannerRunning = false;
+        
+        // Variabel untuk mencegah notifikasi/scan berulang (debounce/cooldown)
+        let lastScannedText = "";
+        let lastScanTime = 0;
+        const SCAN_COOLDOWN = 3000; // Jeda 3 detik untuk QR code yang sama
 
         function startScanner() {
             if (isScannerRunning) return;
             html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const config = { fps: 5, qrbox: { width: 250, height: 250 } }; // FPS diturunkan ke 5 agar lebih stabil di ponsel
 
             html5QrCode.start(
                 { facingMode: "environment" }, 
@@ -507,6 +512,16 @@
         }
 
         function handleSuccessfulScan(rawText) {
+            const currentTime = Date.now();
+
+            // Cegah proses berulang jika QR code yang sama dipindai dalam kurun waktu kurang dari 3 detik
+            if (rawText === lastScannedText && (currentTime - lastScanTime < SCAN_COOLDOWN)) {
+                return; 
+            }
+
+            lastScannedText = rawText;
+            lastScanTime = currentTime;
+
             let namaSiswa = rawText;
             let nipdSiswa = "-";
             let jkSiswa = "-";
@@ -533,13 +548,13 @@
 
             const attendanceRecord = {
                 no: attendanceList.length + 1,
-                nama: namaSiswa,
+                nama: namaSisna = namaSiswa,
                 nipd: nipdSiswa,
                 jk: jkSiswa,
                 waktu: `${dateString} ${timeString}`
             };
 
-            attendanceList.unshift(attendanceRecord); // Masukkan ke urutan teratas
+            attendanceList.unshift(attendanceRecord);
             renderAttendanceTable();
 
             document.getElementById('scannedName').innerText = namaSiswa;
@@ -574,7 +589,7 @@
         }
 
         function clearAttendanceLog() {
-            if (confirm("Yakin ingin meres seluruh log absensi hari ini?")) {
+            if (confirm("Yakin ingin mereset seluruh log absensi hari ini?")) {
                 attendanceList = [];
                 renderAttendanceTable();
                 showToast("Log absensi direset.", "success");
