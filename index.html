@@ -257,6 +257,8 @@
     </div>
 
     <script>
+        const STORAGE_KEY = 'school_attendance_permanent_db_v1';
+
         const defaultStudentsData = [
             { no: "1", nama: "ABDUL MANIF", nipd: "13371", jk: "L", nisn: "105848754", kelas: "XI 6" },
             { no: "2", nama: "ABDUL QAHIR AS SAHLANIY", nipd: "13705", jk: "L", nisn: "108223825", kelas: "X 2" },
@@ -268,7 +270,8 @@
         let attendanceList = [];
 
         window.addEventListener('DOMContentLoaded', () => {
-            const savedAttendance = localStorage.getItem('school_attendance_list_v2');
+            // Memuat data absensi dari localStorage menggunakan kunci permanen
+            const savedAttendance = localStorage.getItem(STORAGE_KEY);
             if (savedAttendance) {
                 try {
                     attendanceList = JSON.parse(savedAttendance);
@@ -377,7 +380,6 @@
             }
         }
 
-        // Universal parser untuk data dari Excel (SheetJS) atau JSON
         function parseSpreadsheetData(rows) {
             if (!Array.isArray(rows) || rows.length === 0) {
                 showToast("File kosong atau format tidak valid.", "error");
@@ -386,7 +388,6 @@
 
             const parsedList = [];
             rows.forEach((row, idx) => {
-                // Normalisasi key menjadi huruf kecil tanpa spasi berlebih
                 const normalizedRow = {};
                 Object.keys(row).forEach(k => {
                     normalizedRow[k.trim().toLowerCase()] = row[k];
@@ -661,7 +662,9 @@
             };
 
             attendanceList.unshift(attendanceRecord);
-            localStorage.setItem('school_attendance_list_v3', JSON.stringify(attendanceList));
+            
+            // Simpan langsung secara permanen ke localStorage
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(attendanceList));
 
             renderAttendanceTable();
 
@@ -700,7 +703,7 @@
         function clearAttendanceLog() {
             if (confirm("Yakin ingin mereset tampilan log absensi?")) {
                 attendanceList = [];
-                localStorage.removeItem('school_attendance_list_v3');
+                localStorage.removeItem(STORAGE_KEY);
                 renderAttendanceTable();
                 showToast("Log absensi direset.", "success");
             }
@@ -709,7 +712,7 @@
         function resetAllAttendanceData() {
             if (confirm("Peringatan: Semua data rekap absensi yang tersimpan akan dihapus permanen. Lanjutkan?")) {
                 attendanceList = [];
-                localStorage.removeItem('school_attendance_list_v3');
+                localStorage.removeItem(STORAGE_KEY);
                 renderAttendanceTable();
                 showToast("Semua data absensi berhasil dihapus.", "success");
             }
