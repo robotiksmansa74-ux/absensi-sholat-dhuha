@@ -268,6 +268,65 @@
             filterAndRenderStudents();
         }
 
+        // Web Audio API untuk efek Beep
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playBeep(type = 'success') {
+            try {
+                initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                if (type === 'success') {
+                    // Beep sukses: Frekuensi tinggi pendek (Ting!)
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'duplicate') {
+                    // Beep QR sama / sudah absen: Nada sedang dua kali (Beep-beep)
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                    
+                    setTimeout(() => {
+                        const osc2 = audioCtx.createOscillator();
+                        const gain2 = audioCtx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioCtx.destination);
+                        osc2.type = 'triangle';
+                        osc2.frequency.setValueAtTime(440, audioCtx.currentTime);
+                        gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                        osc2.start();
+                        osc2.stop(audioCtx.currentTime + 0.1);
+                    }, 150);
+                } else if (type === 'error') {
+                    // Beep error: Frekuensi rendah (Bzt)
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                }
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
+        }
+
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -479,15 +538,16 @@
         let html5QrCode = null;
         let isScannerRunning = false;
         
-        // Variabel untuk mencegah notifikasi/scan berulang (debounce/cooldown)
         let lastScannedText = "";
         let lastScanTime = 0;
-        const SCAN_COOLDOWN = 3000; // Jeda 3 detik untuk QR code yang sama
+        const SCAN_COOLDOWN = 3000;
 
         function startScanner() {
             if (isScannerRunning) return;
+            initAudio(); // Aktifkan context audio saat tombol mulai diklik
+            
             html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 5, qrbox: { width: 250, height: 250 } }; // FPS diturunkan ke 5 agar lebih stabil di ponsel
+            const config = { fps: 5, qrbox: { width: 250, height: 250 } };
 
             html5QrCode.start(
                 { facingMode: "environment" }, 
@@ -514,7 +574,6 @@
         function handleSuccessfulScan(rawText) {
             const currentTime = Date.now();
 
-            // Cegah proses berulang jika QR code yang sama dipindai dalam kurun waktu kurang dari 3 detik
             if (rawText === lastScannedText && (currentTime - lastScanTime < SCAN_COOLDOWN)) {
                 return; 
             }
@@ -538,9 +597,13 @@
             // Cek duplikasi absensi di hari yang sama
             const alreadyRecorded = attendanceList.some(item => item.nipd === nipdSiswa && item.nama === namaSiswa);
             if (alreadyRecorded) {
+                playBeep('duplicate'); // Bunyi beep khusus duplikasi/sudah absen
                 showToast(`${namaSiswa} sudah tercatat hadir sebelumnya!`, "error");
                 return;
             }
+
+            // Jika sukses dan belum absen
+            playBeep('success'); // Bunyi beep sukses
 
             const now = new Date();
             const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -548,7 +611,7 @@
 
             const attendanceRecord = {
                 no: attendanceList.length + 1,
-                nama: namaSisna = namaSiswa,
+                nama: namaSiswa,
                 nipd: nipdSiswa,
                 jk: jkSiswa,
                 waktu: `${dateString} ${timeString}`
