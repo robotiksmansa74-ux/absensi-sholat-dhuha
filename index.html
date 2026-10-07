@@ -192,11 +192,16 @@
 
                     <!-- Tabel Log Absensi Hari Ini -->
                     <div class="space-y-3 pt-2">
-                        <div class="flex justify-between items-center">
-                            <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Daftar Hadir Hari Ini (<span id="attendanceCount">0</span> Siswa)</h4>
-                            <button onclick="downloadAttendanceCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
-                                <i class="fa-solid fa-download"></i> Download Data Absensi (CSV)
-                            </button>
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Daftar Hadir Tersimpan (<span id="attendanceCount">0</span> Siswa)</h4>
+                            <div class="flex gap-2">
+                                <button onclick="downloadAttendanceCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
+                                    <i class="fa-solid fa-download"></i> Download CSV
+                                </button>
+                                <button onclick="resetAllAttendanceData()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-trash"></i> Hapus Semua
+                                </button>
+                            </div>
                         </div>
                         <div class="overflow-x-auto max-h-64 border border-slate-200 rounded-xl">
                             <table class="w-full text-left text-xs">
@@ -260,7 +265,17 @@
         let attendanceList = [];
 
         window.addEventListener('DOMContentLoaded', () => {
+            // Load data absensi yang tersimpan di localStorage saat halaman dimuat
+            const savedAttendance = localStorage.getItem('school_attendance_list');
+            if (savedAttendance) {
+                try {
+                    attendanceList = JSON.parse(savedAttendance);
+                } catch(e) {
+                    attendanceList = [];
+                }
+            }
             initApp();
+            renderAttendanceTable();
         });
 
         function initApp() {
@@ -289,14 +304,12 @@
                 gainNode.connect(audioCtx.destination);
 
                 if (type === 'success') {
-                    // Beep sukses: Frekuensi tinggi pendek (Ting!)
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
                     gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
                     osc.start();
                     osc.stop(audioCtx.currentTime + 0.15);
                 } else if (type === 'duplicate') {
-                    // Beep QR sama / sudah absen: Nada sedang dua kali (Beep-beep)
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(440, audioCtx.currentTime);
                     gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
@@ -314,13 +327,6 @@
                         osc2.start();
                         osc2.stop(audioCtx.currentTime + 0.1);
                     }, 150);
-                } else if (type === 'error') {
-                    // Beep error: Frekuensi rendah (Bzt)
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.25);
                 }
             } catch (e) {
                 console.error("Audio error:", e);
@@ -544,7 +550,7 @@
 
         function startScanner() {
             if (isScannerRunning) return;
-            initAudio(); // Aktifkan context audio saat tombol mulai diklik
+            initAudio();
             
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 5, qrbox: { width: 250, height: 250 } };
@@ -594,16 +600,14 @@
                 }
             } catch (e) {}
 
-            // Cek duplikasi absensi di hari yang sama
             const alreadyRecorded = attendanceList.some(item => item.nipd === nipdSiswa && item.nama === namaSiswa);
             if (alreadyRecorded) {
-                playBeep('duplicate'); // Bunyi beep khusus duplikasi/sudah absen
+                playBeep('duplicate');
                 showToast(`${namaSiswa} sudah tercatat hadir sebelumnya!`, "error");
                 return;
             }
 
-            // Jika sukses dan belum absen
-            playBeep('success'); // Bunyi beep sukses
+            playBeep('success');
 
             const now = new Date();
             const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -618,6 +622,10 @@
             };
 
             attendanceList.unshift(attendanceRecord);
+            
+            // Simpan ke localStorage setiap kali ada data baru yang masuk
+            localStorage.setItem('school_attendance_list', JSON.stringify(attendanceList));
+
             renderAttendanceTable();
 
             document.getElementById('scannedName').innerText = namaSiswa;
@@ -652,10 +660,20 @@
         }
 
         function clearAttendanceLog() {
-            if (confirm("Yakin ingin mereset seluruh log absensi hari ini?")) {
+            if (confirm("Yakin ingin mereset tampilan log absensi?")) {
                 attendanceList = [];
+                localStorage.removeItem('school_attendance_list');
                 renderAttendanceTable();
                 showToast("Log absensi direset.", "success");
+            }
+        }
+
+        function resetAllAttendanceData() {
+            if (confirm("Peringatan: Semua data rekap absensi yang tersimpan akan dihapus permanen. Lanjutkan?")) {
+                attendanceList = [];
+                localStorage.removeItem('school_attendance_list');
+                renderAttendanceTable();
+                showToast("Semua data absensi berhasil dihapus.", "success");
             }
         }
 
